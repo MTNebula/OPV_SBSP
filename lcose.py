@@ -11,7 +11,7 @@ import time
 
 
 #Number of years is equal to Years of Mission + 1 for pre-launch costs 
-NUM_OF_TOTAL_YEARS = 5
+NUM_OF_TOTAL_YEARS = 21
 NUM_OF_ITERATIONS = 1
 DISCOUNT_RATE = 0.1
 DISCOUNT_RATE_SD = 0.02
@@ -448,7 +448,7 @@ if __name__ == "__main__":
     emissiontotal.add_part(parts, "+")
 
     emission = CollectorClass("Emission")
-    parts = [emissiontotal, base_components["Emission Cost"]]
+    parts = [emissiontotal, base_components["Emission Cost"], base_components["Area of panels"]]
     emission.add_part(parts, "*")
 
     # Calculate Fuel Costs
