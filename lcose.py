@@ -8,81 +8,108 @@ import pprint
 import logging
 import warnings
 import time
+import matplotlib.pyplot as plt
+import os
 
 
 #Number of years is equal to Years of Mission + 1 for pre-launch costs 
-NUM_OF_TOTAL_YEARS = 21
-NUM_OF_ITERATIONS = 1
+NUM_OF_TOTAL_YEARS = 20
+NUM_OF_ITERATIONS = 10
 DISCOUNT_RATE = 0.1
 DISCOUNT_RATE_SD = 0.02
 EXCEL_PATH = 'data/LCOE_Parameters.xlsx'
 SHEET_NAME = 'Sheet2'
 
 class CostComponent:
-    def __init__(self, cost):
+    def __init__(self, cost, name, unit):
+        self.name = name
         self.costs = cost
+        self.unit = unit
         self.is_discounted_cost = False
         self.costs_per_iteration = None
+        try: 
+            self.plot_and_save_histogram()
+            self.plot_and_save_histogram_per_iteration()
+        except Exception as e:
+            print(f"Error occurred: {e}")
+            print(f"There was a problem with plotting {self.name}")
+            return None
 
     @property
     def mean(self):
-        non_zero_cost = self.costs[self.costs != 0]
-        if non_zero_cost.size > 0:
-            return np.mean(non_zero_cost)
-        else:
-            return None
+        self.get_cost_per_iteration()
+        mean = []
+        for costs in [self.costs, self.costs_per_iteration]:
+            non_zero_cost = costs[costs != 0]
+            if non_zero_cost.size > 0:
+                mean.append(np.mean(non_zero_cost))
+            else:
+                print(f"ERROR: creating mean for some values because all alues are zero for variable: {self.name}")
+        return mean
 
     @property
     def sd(self):
-        non_zero_cost = self.costs[self.costs != 0]
-        if non_zero_cost.size > 0:
-            return np.std(non_zero_cost)
-        else:
-            return None
+        self.get_cost_per_iteration()
+        sd = []
+        for costs in [self.costs, self.costs_per_iteration]:
+            non_zero_cost = costs[costs != 0]
+            if non_zero_cost.size > 0:
+                sd.append(np.std(non_zero_cost))
+            else:
+                print(f"ERROR: creating std for some values because all alues are zero for variable: {self.name}")
+        return sd
 
     @property
     def min(self):
-        non_zero_cost = self.costs[self.costs != 0]
-        if non_zero_cost.size > 0:
-            return np.min(non_zero_cost)
-        else:
-            return None
+        self.get_cost_per_iteration()
+        min = []
+        for costs in [self.costs, self.costs_per_iteration]:
+            non_zero_cost = costs[costs != 0]
+            if non_zero_cost.size > 0:
+                min.append(np.min(non_zero_cost))
+            else:
+                print(f"ERROR: creating min for some values because all alues are zero for variable: {self.name}")
+        return min
 
     @property
     def max(self):
-        non_zero_cost = self.costs[self.costs != 0]
-        if non_zero_cost.size > 0:
-            return np.max(non_zero_cost)
-        else:
-            return None
+        self.get_cost_per_iteration()
+        max = []
+        for costs in [self.costs, self.costs_per_iteration]:
+            non_zero_cost = costs[costs != 0]
+            if non_zero_cost.size > 0:
+                max.append(np.min(non_zero_cost))
+            else:
+                print(f"ERROR: creating max for some values because all alues are zero for variable: {self.name}")
+        return max
 
     def __add__(self, other):
         if isinstance(other, CostComponent):
-            return CostComponent(self.costs + other.costs)
+            return CostComponent(self.costs + other.costs, self.name, self.unit)
         else:
             raise TypeError(f"Unsupported operand type(s) for +: '{type(self)}' and '{type(other)}'")
 
     def __mul__(self, other):
         if isinstance(other, CostComponent):
-            return CostComponent(self.costs * other.costs)
+            return CostComponent(self.costs * other.costs, self.name, self.unit)
         else:
             raise TypeError(f"Unsupported operand type(s) for *: '{type(self)}' and '{type(other)}'")
 
     def __neg__(self):
         """Define unary negation (i.e., -self)."""
-        return CostComponent(-self.costs)
+        return CostComponent(-self.costs, self.name, self.unit)
 
     def __truediv__(self, other):
         """Define division (i.e., self / other)."""
         if isinstance(other, CostComponent):
-            return CostComponent(self.costs / other.costs)
+            return CostComponent(self.costs / other.costs, self.name, self.unit)
         else:
             raise TypeError(f"Unsupported operand type(s) for /: '{type(self)}' and '{type(other)}'")
 
-    def __sub__(self, other):
+    def __sub__(self, other,):
         """Define subtraction (i.e., self - other)."""
         if isinstance(other, CostComponent):
-            return CostComponent(self.costs - other.costs)
+            return CostComponent(self.costs - other.costs, self.name, self.unit)
         else:
             raise TypeError(f"Unsupported operand type(s) for -: '{type(self)}' and '{type(other)}'")
 
@@ -113,6 +140,54 @@ class CostComponent:
         if self.costs_per_iteration is None:
             self.costs_per_iteration = np.sum(self.costs, axis=1)
         return self.costs_per_iteration
+    
+    def get_non_zero_cost(self):
+        return self.costs[self.costs != 0]
+
+    
+    def plot_and_save_histogram(self, folder='plots'):
+        # Flatten the cost matrix to get all individual cost values
+        flat_costs = self.get_non_zero_cost().flatten()
+
+        # Create a folder if it doesn't exist
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        # Plot the histogram with 20 bins
+        plt.hist(flat_costs, bins=20, edgecolor='black')
+        plt.title(f'{self.name}') 
+        plt.xlabel(f'{self.unit}')
+        plt.ylabel('Frequency')
+        plt.grid(True)
+
+        # Save the plot in the specified folder with the filename based on the variable name
+        plt.savefig(f'{folder}/{self.name}.png')
+
+        # # Show the plot
+        # plt.show()
+        plt.close()
+
+    def plot_and_save_histogram_per_iteration(self, folder='plots_per_iteration'):
+        # Flatten the cost matrix to get all individual cost values
+        flat_costs = self.get_cost_per_iteration()
+
+        # Create a folder if it doesn't exist
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+
+        # Plot the histogram with 20 bins
+        plt.hist(flat_costs, bins=20, edgecolor='black')
+        plt.title(f'{self.name}') 
+        plt.xlabel(f'{self.unit}')
+        plt.ylabel('Frequency')
+        plt.grid(True)
+
+        # Save the plot in the specified folder with the filename based on the variable name
+        plt.savefig(f'{folder}/{self.name}.png')
+
+        # # Show the plot
+        # plt.show()
+        plt.close()
 
 class BaseComponent:
     def __init__(self, name, parents, unit, distribution, time_for_determination, low, high, sd, mean, shape, scale, count):
@@ -146,7 +221,7 @@ class BaseComponent:
         self.shape = shape
         self.scale = scale
         self.count = count
-        self.cost_component = CostComponent(self._generate_cost_array())
+        self.cost_component = CostComponent(self._generate_cost_array(), name, self.unit)
 
     def __repr__(self):
         """
@@ -196,7 +271,7 @@ class BaseComponent:
         return self.cost_component
     
     def set_cost(self, cost):
-        self.cost_component = CostComponent(cost)
+        self.cost_component = CostComponent(cost, self.name, self.unit)
 
     def _generate_cost_array(self):
         """
@@ -236,7 +311,7 @@ class CollectorClass:
     Represents a collector class for managing parts and their costs.
     """
 
-    def __init__(self, name):
+    def __init__(self, name, unit="unit"):
         """
         Initialize a CollectorClass instance.
 
@@ -244,6 +319,7 @@ class CollectorClass:
             name (str): The name of the collector class.
         """
         self.name = name
+        self.unit = unit
         self.parts = {}
         self.cost_component = None
 
@@ -274,9 +350,9 @@ class CollectorClass:
         if self.cost_component is None:
             shape = parts[0].get_cost().costs.shape  # Copy the cost array from the first part
             if operation == "+" or operation == "-":
-                self.cost_component = CostComponent(np.zeros(shape))
-            elif operation == "*" or operation == "/":
-                self.cost_component = CostComponent(np.ones(shape))
+                self.cost_component = CostComponent(np.zeros(shape), self.name, self.unit)
+            elif operation == "*":
+                self.cost_component = CostComponent(np.ones(shape), self.name, self.unit)
 
         # Perform specified operation on costs element-wise
         if operation == "+":
@@ -289,13 +365,10 @@ class CollectorClass:
             for part in parts:
                 self.cost_component -= part.get_cost()
         elif operation == "/":
-            for part in parts:
-                part_cost = part.get_cost().costs
-                part_cost[part_cost == 0.] = 1.
-                self.cost_component /= part.get_cost()
+            self.cost_component = parts[0].get_cost() / parts[1].get_cost()
 
     def set_cost(self, cost):
-        self.cost_component = CostComponent(cost)
+        self.cost_component = CostComponent(cost, self.name, self.unit)
 
     def get_cost(self):
         return self.cost_component
@@ -425,53 +498,64 @@ if __name__ == "__main__":
     # Calculate Maintenance Costs
 
     base_components = extract_base_components(EXCEL_PATH, SHEET_NAME)
-    repairsmaterial = CollectorClass("Repairs Material")
-    parts = [base_components["Probability of Material Repairs"], base_components["Material Repairs Cost"]]
-    repairsmaterial.add_part(parts, "*")
+    repairsmaterial = CollectorClass("Repairs Material", "USD")
+    parts = [ base_components["Material Repairs Cost"], base_components["Repair Assembly"]]
+    repairsmaterial.add_part(parts, "+")
 
-    repairassembly = CollectorClass("Repairs Assembly")
-    parts = [base_components["Probability of Material Repairs"], base_components["Repair Assembly"]]
-    repairassembly.add_part(parts, "*")
 
-    launchrepair = CollectorClass("Launch Repair")
-    parts = [base_components["Probability of Material Repairs"],base_components["Repair Number of Launches"], base_components["Repair Launching cost"]]
+    launchrepair = CollectorClass("Launch Repair", 'USD')
+    parts = [base_components["Repair Number of Launches"], base_components["Repair Launching cost"]]
     launchrepair.add_part(parts, "*")
 
-    maintenance = CollectorClass("Maintenance")
-    parts = [launchrepair, repairassembly, repairsmaterial]
-    maintenance.add_part(parts, "+")
+    repairtotal = CollectorClass("Repairs Assembly",'USD')
+    parts = [repairsmaterial, launchrepair]
+    repairtotal.add_part(parts, "+")
+
+    maintenance = CollectorClass("Maintenance",'USD')
+    parts = [base_components["Probability of Material Repairs"], repairtotal]
+    maintenance.add_part(parts, "*")
 
     # Calculate Emissions Costs
 
-    emissiontotal = CollectorClass("Emission")
+    emissiontotal = CollectorClass("Emission", 'TCO2e/m2')
     parts = [base_components["Energy system emissions"], base_components["Launching emissions"]]
     emissiontotal.add_part(parts, "+")
 
-    emission = CollectorClass("Emission")
+    emission = CollectorClass("Emission", 'USD')
     parts = [emissiontotal, base_components["Emission Cost"], base_components["Area of panels"]]
     emission.add_part(parts, "*")
 
     # Calculate Fuel Costs
 
-    fuel = CollectorClass("Fuel")
+    fuel = CollectorClass("Fuel",'USD')
     parts = [base_components["Fuel use"], base_components["Fuel cost"]]
     fuel.add_part(parts, "*")
 
 # Calculate Energy Generated
 
-    efficiencyboost = CollectorClass("Efficiency boost")
+    efficiencyboost = CollectorClass("Efficiency boost", '%')
     parts = [base_components["Efficiency boost repair"], base_components["Probability of Material Repairs"]]
     efficiencyboost.add_part(parts, "*")
 
     costs = efficiencyboost.get_cost().costs
     for iteration in range(costs.shape[0]):
         for year in range(costs.shape[1]):
-            costs[iteration, year] = base_components["Original Efficiency"].cost_component.costs[iteration, year] * (1 - base_components["Efficiency Degradation Rate"].cost_component.costs[iteration, year]) + base_components["Efficiency boost repair"].cost_component.costs[iteration, year]
+            costs[iteration, year] = base_components["Original Efficiency"].cost_component.costs[iteration, year] * (1 - base_components["Efficiency Degradation Rate"].cost_component.costs[iteration, year])**year 
 
-    efficiencyt = CollectorClass("Efficiency t")
-    efficiencyt.set_cost(costs)
+    efficiencyd = CollectorClass("Efficiency d",'%')
+    efficiencyd.set_cost(costs)
 
-    energy = CollectorClass("Energy")
+
+    efficiencybd = CollectorClass("Efficiency bd", '%')
+    parts = [efficiencyboost,efficiencyd]
+    efficiencybd.add_part(parts, "*")
+
+
+    efficiencyt = CollectorClass("Efficiency t", '%')
+    parts = [efficiencybd,efficiencyd]
+    efficiencyt.add_part(parts, "+")
+
+    energy = CollectorClass("Energy", 'MWh')
     parts = [base_components["Installed Capacity"], efficiencyt, base_components["#days in year t"], base_components["Hours in a day"]]
     energy.add_part(parts, "*")
 
@@ -479,30 +563,34 @@ if __name__ == "__main__":
     
 #Calculate Manufacture Costs
 
-    manufacture_panels = CollectorClass("Manufacture Panels")
+    manufacture_panels = CollectorClass("Manufacture Panels", 'USD/m2')
     parts = [base_components['Raw Materials'], base_components['Processing']]
     manufacture_panels.add_part(parts, "+")
 
-    manufacture = CollectorClass("Manufacture Cost")
+    manufacture = CollectorClass("Manufacture Cost", 'USD')
     parts = [base_components['Area of panels'], manufacture_panels]
     manufacture.add_part(parts, "*")
     
     
     # Launch Costs
-    launch = CollectorClass("Launch")
+    launch = CollectorClass("Launch", 'USD')
     parts = [base_components['Number of Launches'], base_components['Launching cost']]
     launch.add_part(parts, "*")
 
      # Investment Costs
-    investment = CollectorClass("Investment Costs")
+    investment = CollectorClass("Investment Costs", 'USD')
     parts = [base_components['Assembly'], launch, manufacture]
     investment.add_part(parts, "+")
 
 
     # Cost overall should be checked and looked over
-    cost = CollectorClass("Cost")
+    cost = CollectorClass("Cost", 'USD')
     parts = [investment, emission, fuel, maintenance]
-    cost.add_part(parts)
+    cost.add_part(parts, "+")
+
+    costwithoutemission = CollectorClass("Cost", 'USD')
+    parts = [investment, fuel, maintenance]
+    costwithoutemission.add_part(parts, "+")
 
     costs = base_components["Depreciation of Assets"].get_cost().costs
     for iteration in range(costs.shape[0]):
@@ -511,18 +599,37 @@ if __name__ == "__main__":
 
     base_components["Depreciation of Assets"].set_cost(costs)
 
-    totalcost = CollectorClass("Cost Total")
+    totalcost = CollectorClass("Cost Total", 'USD')
     parts = [cost, base_components["Depreciation of Assets"]]
     totalcost.add_part(parts, "/")
     totalcost.set_cost(totalcost.get_cost().get_cost_per_iteration())
+    totalcost.get_cost().plot_and_save_histogram()
+    print(totalcost)
+    print(totalcost.get_cost().costs)
     
+
+    totalcostwithoutemission = CollectorClass("Cost Total", 'USD')
+    parts = [costwithoutemission, base_components["Depreciation of Assets"]]
+    totalcostwithoutemission.add_part(parts, "/")
+    totalcostwithoutemission.set_cost(totalcostwithoutemission.get_cost().get_cost_per_iteration())
+    totalcostwithoutemission.get_cost().plot_and_save_histogram()
+    print(totalcostwithoutemission)
+    print(totalcostwithoutemission.get_cost().costs)
     
-    totalenergy = CollectorClass("Energy Total")
+    totalenergy = CollectorClass("Energy Total", 'MWh')
     parts = [energy, base_components["Depreciation of Assets"]]
     totalenergy.add_part(parts, "/")
     totalenergy.set_cost(totalenergy.get_cost().get_cost_per_iteration())
+    print(totalenergy)
+    print(totalenergy.get_cost().costs)
 
-    lcoe = CollectorClass("LCOSE")
+    lcoe = CollectorClass("LCOSE", 'USD/Mwh')
     parts = [totalcost, totalenergy]
     lcoe.add_part(parts, "/")
     print(lcoe.get_cost().costs)
+
+    lcoewithoutemission = CollectorClass("LCOSE", 'USD/Mwh')
+    parts = [totalcostwithoutemission, totalenergy]
+    lcoewithoutemission.add_part(parts, "/")
+
+    print(lcoewithoutemission.get_cost().costs)
