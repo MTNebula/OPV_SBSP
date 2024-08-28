@@ -24,7 +24,7 @@ EXCEL_PATH = 'data/LCOE_Parameters.xlsb.xlsx'
 SHEET_NAME = 'OPV Scenario 2'
 SHEET_NAMES = ['PV Scenario 1', 'PV Scenario 2', 'OPV Scenario 1', 'OPV Scenario 2']
 
-values_of_scenarios = { 'PV Scenario 1':[], 'PV Scenario 2':[], 'OPV Scenario 1':[], 'OPV Scenario 1':[]}
+values_of_scenarios = { 'PV Scenario 1':[], 'PV Scenario 2':[], 'OPV Scenario 1':[], 'OPV Scenario 2':[]}
 
 
 class CostComponent:
@@ -500,7 +500,7 @@ def generate_random_value(distribution, mean=0, sd=1, low=0, high=1, shape=1, sc
         raise ValueError(f"Unsupported distribution: {distribution}")
     
 
-class CostCalculator:
+class  CostCalculator:
     def __init__(self, excel_path, sheet_name):
         print(excel_path)
         print(sheet_name)
@@ -671,11 +671,11 @@ def create_table(scenarios):
 
     return df
 
-def plot_error_bars(scenarios):
+def plot_error_bars(scenarios, exclude_components=[]):
     fig, ax = plt.subplots()
 
     for scenario, calculator in scenarios.items():
-        components = list(calculator.base_components.keys())
+        components = [component for component in calculator.base_components.keys() if component not in exclude_components]
         means = [calculator.base_components[component].cost_component.mean[0] for component in components]
         errors = [calculator.base_components[component].cost_component.sd[0] for component in components]
 
@@ -689,7 +689,15 @@ def plot_error_bars(scenarios):
     ax.set_title('Mean Cost with Error Bars for Each Component in Each Scenario')
     ax.legend()
 
+    # Use log scale for y-axis
+    ax.set_yscale('log')
+
     plt.tight_layout()
+
+
+    # Save the plot
+    plt.savefig(f'data/results/plot/error_bars_{scenario}.png')
+
     plt.show()
 
 
@@ -705,6 +713,9 @@ if __name__ == "__main__":
     table = create_table(values_of_scenarios)
     print(table)
 
+
+    exclude_components = ['#days in year t', 'Original Efficiency','Hours in a day','Mission Life', 'Depreciation of Assets', 'Probability of Material Repairs','Fuel Cost','Emission Cost']
+    plot_error_bars(values_of_scenarios, exclude_components)
 
 
 #     # Calculate Maintenance Costs
