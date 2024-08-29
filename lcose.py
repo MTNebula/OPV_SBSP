@@ -747,7 +747,7 @@ if __name__ == "__main__":
     plt.legend()
 
     # Show the plot
-    plt.savefig('mean_costs_per_year.png')
+    plt.savefig('data/results/mean_costs_per_year.png')
 
 
 # %%calculate lcoe
@@ -794,7 +794,7 @@ if __name__ == "__main__":
     plt.legend()
 
     # Show the plot
-    plt.show()
+    plt.savefig('data/results/lcoe_per_scenario.png')
 
 # %% lcoe plot
     # Create a list to store the means and standard deviations for each scenario
@@ -836,6 +836,6 @@ if __name__ == "__main__":
     plt.legend()
 
     # Show the plot
-    plt.show()
+    plt.savefig('data/results/lcoewithouthemissions_per_scenario.png')
 
 # %%
