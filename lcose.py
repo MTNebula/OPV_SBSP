@@ -796,6 +796,46 @@ if __name__ == "__main__":
     # Show the plot
     plt.show()
 
+# %% lcoe plot
+    # Create a list to store the means and standard deviations for each scenario
+    means = []
+    stds = []
+    scenario_names = []
 
+    # Iterate over the scenarios
+    for name, information in values_of_scenarios.items():
+        lcoe = information.lcoewithoutemission.get_cost().costs  # Get the first 5 years of LCOE data
+        mean = np.mean(lcoe)  # Calculate the mean
+        std = np.std(lcoe)  # Calculate the standard deviation
+        means.append(mean)
+        stds.append(std)
+        scenario_names.append(name)
+
+    # Create a list for the x-axis positions
+    x_pos = range(1, len(scenario_names) + 1)
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+
+    # Plot the error bars
+    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='LCOE with error bars')
+
+    # Plot the means as horizontal lines
+    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos], colors='red', label='Mean LCOE')
+
+    # Add labels and title
+    plt.xlabel('Scenario')
+    plt.ylabel('LCOE')
+    plt.title('LCOE without emissions for Each Scenario with Error Bars and Mean')
+
+    # Set the x-axis ticks and labels
+    plt.xticks(x_pos, scenario_names)
+    plt.yscale('log')
+
+    # Add a legend
+    plt.legend()
+
+    # Show the plot
+    plt.show()
 
 # %%
