@@ -13,11 +13,13 @@ import os
 
 import pandas as pd
 
+import copy
+
 
 
 #Number of years is equal to Years of Mission + 1 for pre-launch costs 
-NUM_OF_TOTAL_YEARS = 20
-NUM_OF_ITERATIONS = 10
+NUM_OF_TOTAL_YEARS = 21
+NUM_OF_ITERATIONS = 1000
 DISCOUNT_RATE = 0.1
 DISCOUNT_RATE_SD = 0.02
 EXCEL_PATH = 'data/LCOE_Parameters.xlsb.xlsx'
@@ -126,7 +128,7 @@ class CostComponent:
     
     def get_discounted_cost(self):
         if self.is_discounted_cost == True:
-            return self.discounted_cost
+            return copy.deepcopy(self.discounted_cost)
         else:
             UserWarning("Please discount it first")
 
@@ -146,10 +148,10 @@ class CostComponent:
     def get_cost_per_iteration(self):
         if self.costs_per_iteration is None:
             self.costs_per_iteration = np.sum(self.costs, axis=1)
-        return self.costs_per_iteration
+        return copy.deepcopy(self.costs_per_iteration)
     
     def get_non_zero_cost(self):
-        return self.costs[self.costs != 0]
+        return copy.deepcopy(self.costs[self.costs != 0])
 
     
     def plot_and_save_histogram(self, folder='plots'):
@@ -275,7 +277,7 @@ class BaseComponent:
             raise TypeError(f"Unsupported operand type(s) for *: '{type(self)}' and '{type(other)}'")
         
     def get_cost(self):
-        return self.cost_component
+        return copy.deepcopy(self.cost_component)
     
     def set_cost(self, cost):
         self.cost_component = CostComponent(cost, self.name, self.unit)
@@ -378,7 +380,7 @@ class CollectorClass:
         self.cost_component = CostComponent(cost, self.name, self.unit)
 
     def get_cost(self):
-        return self.cost_component
+        return copy.deepcopy(self.cost_component)
 
     def __repr__(self):
         return f"CollectorClass(name='{self.name}', parts={list(self.parts.keys())})"
@@ -704,16 +706,18 @@ def plot_error_bars(scenarios, exclude_components=[]):
 
 if __name__ == "__main__":
 
+# %% loading in things
     for sheet_name in values_of_scenarios.keys():
         print(f"Calculating {sheet_name}")
         values_of_scenarios[sheet_name] = CostCalculator(EXCEL_PATH, sheet_name)
         print(f"Finished Calculating {sheet_name}")
 
+# %% Create the table
     # Usage
     table = create_table(values_of_scenarios)
     print(table)
 
-
+# %% Create error bars
     exclude_components = ['#days in year t', 'Original Efficiency','Hours in a day','Mission Life', 'Depreciation of Assets', 'Probability of Material Repairs','Fuel Cost','Emission Cost']
     plot_error_bars(values_of_scenarios, exclude_components)
 
