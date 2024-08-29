@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+# %% loading in things
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,7 @@ import os
 import pandas as pd
 
 import copy
+
 
 
 
@@ -706,7 +707,7 @@ def plot_error_bars(scenarios, exclude_components=[]):
 
 if __name__ == "__main__":
 
-# %% loading in things
+
     for sheet_name in values_of_scenarios.keys():
         print(f"Calculating {sheet_name}")
         values_of_scenarios[sheet_name] = CostCalculator(EXCEL_PATH, sheet_name)
@@ -720,6 +721,15 @@ if __name__ == "__main__":
 # %% Create error bars
     exclude_components = ['#days in year t', 'Original Efficiency','Hours in a day','Mission Life', 'Depreciation of Assets', 'Probability of Material Repairs','Fuel Cost','Emission Cost']
     plot_error_bars(values_of_scenarios, exclude_components)
+
+# %% Create plot of opv and pv
+    degradation_comp_scenarios = [values_of_scenarios['PV Scenario 1'], values_of_scenarios['OPV Scenario 1']] 
+    for scenario in degradation_comp_scenarios:
+        print(f"Degradation calc for the following scenario:{scenario.sheet_name}")
+        print(scenario.efficiencyt.get_cost())
+        mean_per_year = np.mean(scenario.efficiencyt.get_cost().costs, axis=0)
+        print(f"mean per year {mean_per_year}")
+
 
 
 #     # Calculate Maintenance Costs
@@ -860,3 +870,5 @@ if __name__ == "__main__":
 #     lcoewithoutemission.add_part(parts, "/")
 
 #     print(lcoewithoutemission.get_cost().costs)
+
+# %%
