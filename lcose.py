@@ -729,6 +729,10 @@ if __name__ == "__main__":
         print(scenario.efficiencyt.get_cost())
         mean_per_year = np.mean(scenario.efficiencyt.get_cost().costs, axis=0)
         print(f"mean per year {mean_per_year}")
+# %%calculate lcoe
+    for name, information in values_of_scenarios.items():
+        lcoe = information.lcoe.get_cost().costs
+        print(f"LCOE for {name}: {lcoe}")
 
 
 
