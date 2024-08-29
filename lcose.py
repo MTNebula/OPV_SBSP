@@ -830,7 +830,6 @@ if __name__ == "__main__":
 
     # Set the x-axis ticks and labels
     plt.xticks(x_pos, scenario_names)
-    plt.yscale('log')
 
     # Add a legend
     plt.legend()
