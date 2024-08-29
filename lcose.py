@@ -752,148 +752,50 @@ if __name__ == "__main__":
 
 # %%calculate lcoe
     for name, information in values_of_scenarios.items():
-        lcoe = information.lcoe.get_cost().costs
+        lcoe = information.lcoe.get_cost().costs[:5]
         print(f"LCOE for {name}: {lcoe}")
 
+# %% lcoe plot
+    # Create a list to store the means and standard deviations for each scenario
+    means = []
+    stds = []
+    scenario_names = []
+
+    # Iterate over the scenarios
+    for name, information in values_of_scenarios.items():
+        lcoe = information.lcoe.get_cost().costs  # Get the first 5 years of LCOE data
+        mean = np.mean(lcoe)  # Calculate the mean
+        std = np.std(lcoe)  # Calculate the standard deviation
+        means.append(mean)
+        stds.append(std)
+        scenario_names.append(name)
+
+    # Create a list for the x-axis positions
+    x_pos = range(1, len(scenario_names) + 1)
+
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+
+    # Plot the error bars
+    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='LCOE with error bars')
+
+    # Plot the means as horizontal lines
+    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos], colors='red', label='Mean LCOE')
+
+    # Add labels and title
+    plt.xlabel('Scenario')
+    plt.ylabel('LCOE')
+    plt.title('LCOE for Each Scenario with Error Bars and Mean')
+
+    # Set the x-axis ticks and labels
+    plt.xticks(x_pos, scenario_names)
+
+    # Add a legend
+    plt.legend()
+
+    # Show the plot
+    plt.show()
 
 
-#     # Calculate Maintenance Costs
-
-#     base_components = extract_base_components(EXCEL_PATH, SHEET_NAME)
-#     repairsmaterial = CollectorClass("Repairs Material", "USD")
-#     parts = [ base_components["Material Repairs Cost"], base_components["Repair Assembly"]]
-#     repairsmaterial.add_part(parts, "+")
-
-
-#     launchrepair = CollectorClass("Launch Repair", 'USD')
-#     parts = [base_components["Repair Number of Launches"], base_components["Repair Launching cost"]]
-#     launchrepair.add_part(parts, "*")
-
-#     repairtotal = CollectorClass("Repairs Assembly",'USD')
-#     parts = [repairsmaterial, launchrepair]
-#     repairtotal.add_part(parts, "+")
-
-#     maintenance = CollectorClass("Maintenance",'USD')
-#     parts = [base_components["Probability of Material Repairs"], repairtotal]
-#     maintenance.add_part(parts, "*")
-
-#     # Calculate Emissions Costs
-
-#     emissiontotal = CollectorClass("Emission", 'TCO2e/m2')
-#     parts = [base_components["Energy system emissions"], base_components["Launching emissions"]]
-#     emissiontotal.add_part(parts, "+")
-
-#     emission = CollectorClass("Emission", 'USD')
-#     parts = [emissiontotal, base_components["Emission Cost"], base_components["Area of panels"]]
-#     emission.add_part(parts, "*")
-
-#     # Calculate Fuel Costs
-
-#     fuel = CollectorClass("Fuel",'USD')
-#     parts = [base_components["Fuel use"], base_components["Fuel cost"]]
-#     fuel.add_part(parts, "*")
-
-# # Calculate Energy Generated
-
-#     efficiencyboost = CollectorClass("Efficiency boost", '%')
-#     parts = [base_components["Efficiency boost repair"], base_components["Probability of Material Repairs"]]
-#     efficiencyboost.add_part(parts, "*")
-
-#     costs = efficiencyboost.get_cost().costs
-#     for iteration in range(costs.shape[0]):
-#         for year in range(costs.shape[1]):
-#             costs[iteration, year] = base_components["Original Efficiency"].cost_component.costs[iteration, year] * (1 - base_components["Efficiency Degradation Rate"].cost_component.costs[iteration, year])**year 
-
-#     efficiencyd = CollectorClass("Efficiency d",'%')
-#     efficiencyd.set_cost(costs)
-
-
-#     efficiencybd = CollectorClass("Efficiency bd", '%')
-#     parts = [efficiencyboost,efficiencyd]
-#     efficiencybd.add_part(parts, "*")
-
-
-#     efficiencyt = CollectorClass("Efficiency t", '%')
-#     parts = [efficiencybd,efficiencyd]
-#     efficiencyt.add_part(parts, "+")
-
-#     energy = CollectorClass("Energy", 'MWh')
-#     parts = [base_components["Installed Capacity"], efficiencyt, base_components["#days in year t"], base_components["Hours in a day"]]
-#     energy.add_part(parts, "*")
-
-
-    
-# #Calculate Manufacture Costs
-
-#     manufacture_panels = CollectorClass("Manufacture Panels", 'USD/m2')
-#     parts = [base_components['Raw Materials'], base_components['Processing']]
-#     manufacture_panels.add_part(parts, "+")
-
-#     manufacture = CollectorClass("Manufacture Cost", 'USD')
-#     parts = [base_components['Area of panels'], manufacture_panels]
-#     manufacture.add_part(parts, "*")
-    
-    
-#     # Launch Costs
-#     launch = CollectorClass("Launch", 'USD')
-#     parts = [base_components['Number of Launches'], base_components['Launching cost']]
-#     launch.add_part(parts, "*")
-
-#      # Investment Costs
-#     investment = CollectorClass("Investment Costs", 'USD')
-#     parts = [base_components['Assembly'], launch, manufacture]
-#     investment.add_part(parts, "+")
-
-
-#     # Cost overall should be checked and looked over
-#     cost = CollectorClass("Cost", 'USD')
-#     parts = [investment, emission, fuel, maintenance]
-#     cost.add_part(parts, "+")
-
-#     costwithoutemission = CollectorClass("Cost", 'USD')
-#     parts = [investment, fuel, maintenance]
-#     costwithoutemission.add_part(parts, "+")
-
-#     costs = base_components["Depreciation of Assets"].get_cost().costs
-#     for iteration in range(costs.shape[0]):
-#         for year in range(costs.shape[1]):
-#             costs[iteration, year] = (1 + costs[iteration, year]) ** year
-
-#     base_components["Depreciation of Assets"].set_cost(costs)
-
-#     totalcost = CollectorClass("Cost Total", 'USD')
-#     parts = [cost, base_components["Depreciation of Assets"]]
-#     totalcost.add_part(parts, "/")
-#     totalcost.set_cost(totalcost.get_cost().get_cost_per_iteration())
-#     totalcost.get_cost().plot_and_save_histogram()
-#     print(totalcost)
-#     print(totalcost.get_cost().costs)
-    
-
-#     totalcostwithoutemission = CollectorClass("Cost Total", 'USD')
-#     parts = [costwithoutemission, base_components["Depreciation of Assets"]]
-#     totalcostwithoutemission.add_part(parts, "/")
-#     totalcostwithoutemission.set_cost(totalcostwithoutemission.get_cost().get_cost_per_iteration())
-#     totalcostwithoutemission.get_cost().plot_and_save_histogram()
-#     print(totalcostwithoutemission)
-#     print(totalcostwithoutemission.get_cost().costs)
-    
-#     totalenergy = CollectorClass("Energy Total", 'MWh')
-#     parts = [energy, base_components["Depreciation of Assets"]]
-#     totalenergy.add_part(parts, "/")
-#     totalenergy.set_cost(totalenergy.get_cost().get_cost_per_iteration())
-#     print(totalenergy)
-#     print(totalenergy.get_cost().costs)
-
-#     lcoe = CollectorClass("LCOSE", 'USD/Mwh')
-#     parts = [totalcost, totalenergy]
-#     lcoe.add_part(parts, "/")
-#     print(lcoe.get_cost().costs)
-
-#     lcoewithoutemission = CollectorClass("LCOSE", 'USD/Mwh')
-#     parts = [totalcostwithoutemission, totalenergy]
-#     lcoewithoutemission.add_part(parts, "/")
-
-#     print(lcoewithoutemission.get_cost().costs)
 
 # %%
