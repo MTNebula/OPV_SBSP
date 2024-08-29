@@ -724,11 +724,32 @@ if __name__ == "__main__":
 
 # %% Create plot of opv and pv
     degradation_comp_scenarios = [values_of_scenarios['PV Scenario 1'], values_of_scenarios['OPV Scenario 1']] 
+    plt.figure(figsize=(10, 6))
     for scenario in degradation_comp_scenarios:
         print(f"Degradation calc for the following scenario:{scenario.sheet_name}")
         print(scenario.efficiencyt.get_cost())
         mean_per_year = np.mean(scenario.efficiencyt.get_cost().costs, axis=0)
         print(f"mean per year {mean_per_year}")
+
+            # Create a range for the x-axis (years)
+        years = range(1, len(mean_per_year))
+
+        # Plot the data
+
+        plt.plot(years, mean_per_year[1:], label=scenario.sheet_name)
+
+    # Add labels and title
+    plt.xlabel('Years')
+    plt.ylabel('Mean Cost per Year')
+    plt.title('Comparison of Mean Costs per Year for PV and OPV Scenarios')
+
+    # Add a legend
+    plt.legend()
+
+    # Show the plot
+    plt.savefig('mean_costs_per_year.png')
+
+
 # %%calculate lcoe
     for name, information in values_of_scenarios.items():
         lcoe = information.lcoe.get_cost().costs
