@@ -15,6 +15,7 @@ import seaborn as sns
 import pandas as pd
 
 import copy
+from itertools import chain
 
 colors = sns.color_palette("viridis", 50)
 sns.set_palette("viridis")
@@ -43,7 +44,7 @@ class CostComponent:
         self.costs_per_iteration = None
         try: 
             # self.plot_and_save_histogram()
-            self.plot_and_save_histogram_per_iteration()
+            # self.plot_and_save_histogram_per_iteration()
             # despine the top and right axis
             sns.despine()
             #add a gray grid
@@ -58,51 +59,21 @@ class CostComponent:
 
     @property
     def mean(self):
-        self.get_cost_per_iteration()
-        mean = []
-        for costs in [self.costs, self.costs_per_iteration]:
-            non_zero_cost = costs[costs != 0]
-            if non_zero_cost.size > 0:
-                mean.append(np.mean(non_zero_cost)) #avoiding zero values, particularly for parameters that happen only once
-            else:
-                print(f"ERROR: creating mean for some values because all alues are zero for variable: {self.name}")
-        return mean
+        return np.mean(self.get_cost_per_iteration())
+
 
     @property
     def sd(self):
-        self.get_cost_per_iteration()
-        sd = []
-        for costs in [self.costs, self.costs_per_iteration]:
-            non_zero_cost = costs[costs != 0]
-            if non_zero_cost.size > 0:
-                sd.append(np.std(non_zero_cost))
-            else:
-                print(f"ERROR: creating std for some values because all alues are zero for variable: {self.name}")
-        return sd
+        return np.std(self.get_cost_per_iteration())
 
     @property
     def min(self):
-        self.get_cost_per_iteration()
-        min = []
-        for costs in [self.costs, self.costs_per_iteration]:
-            non_zero_cost = costs[costs != 0]
-            if non_zero_cost.size > 0:
-                min.append(np.min(non_zero_cost))
-            else:
-                print(f"ERROR: creating min for some values because all alues are zero for variable: {self.name}")
-        return min
+        return np.min(self.get_cost_per_iteration())
 
     @property
     def max(self):
-        self.get_cost_per_iteration()
-        max = []
-        for costs in [self.costs, self.costs_per_iteration]:
-            non_zero_cost = costs[costs != 0]
-            if non_zero_cost.size > 0:
-                max.append(np.min(non_zero_cost))
-            else:
-                print(f"ERROR: creating max for some values because all alues are zero for variable: {self.name}")
-        return max
+        return np.max(self.get_cost_per_iteration())
+
 
 # Defines the mathematical operations for the CostComponent class to be able to add, subtract, multiply, and divide cost components.
 
@@ -161,9 +132,11 @@ class CostComponent:
         return self.costs
     
     def get_cost_per_iteration(self):
-        if self.costs_per_iteration is None:
+        if self.costs_per_iteration is None and self.costs.ndim == 2:
             self.costs_per_iteration = np.sum(self.costs, axis=1)
-        return copy.deepcopy(self.costs_per_iteration)
+            return copy.deepcopy(self.costs_per_iteration)
+        else:
+            return copy.deepcopy(self.costs) 
     
     def get_non_zero_cost(self):
         return copy.deepcopy(self.costs[self.costs != 0])
@@ -678,7 +651,7 @@ class  CostCalculator:
         parts = [self.cost, self.base_components["Depreciation of Assets"]]
         self.totalcost.add_part(parts, "/")
         self.totalcost.set_cost(self.totalcost.get_cost().get_cost_per_iteration())
-        self.totalcost.get_cost().plot_and_save_histogram()
+        # self.totalcost.get_cost().plot_and_save_histogram()
         print(self.totalcost)
         print(self.totalcost.get_cost().costs)
 
@@ -686,7 +659,7 @@ class  CostCalculator:
         parts = [self.costwithoutemission, self.base_components["Depreciation of Assets"]]
         self.totalcostwithoutemission.add_part(parts, "/")
         self.totalcostwithoutemission.set_cost(self.totalcostwithoutemission.get_cost().get_cost_per_iteration())
-        self.totalcostwithoutemission.get_cost().plot_and_save_histogram()
+        # self.totalcostwithoutemission.get_cost().plot_and_save_histogram()
         print(self.totalcostwithoutemission)
         print(self.totalcostwithoutemission.get_cost().costs)
 
@@ -714,14 +687,16 @@ class  CostCalculator:
 def create_table(scenarios):
     data = []
     for scenario, calculator in scenarios.items():
+        calculator.base_components['lcoe'] = calculator.lcoe
+        components = calculator.base_components.values()
         for component in calculator.base_components.values():
             data.append({
                 'Scenario': scenario,
                 'Component': component.name,
-                'Mean': component.cost_component.mean[0],
-                'Max': component.cost_component.max[0],
-                'Min': component.cost_component.min[0],
-                'SD': component.cost_component.sd[0]
+                'Mean': component.cost_component.mean,
+                'Max': component.cost_component.max,
+                'Min': component.cost_component.min,
+                'SD': component.cost_component.sd
             })
 
     df = pd.DataFrame(data)
@@ -737,8 +712,8 @@ def plot_error_bars(scenarios, exclude_components=[]):
 
     for scenario, calculator in scenarios.items():
         components = [component for component in calculator.base_components.keys() if component not in exclude_components]
-        means = [calculator.base_components[component].cost_component.mean[0] for component in components]
-        errors = [calculator.base_components[component].cost_component.sd[0] for component in components]
+        means = [calculator.base_components[component].cost_component.mean for component in components]
+        errors = [calculator.base_components[component].cost_component.sd for component in components]
 
         x = range(len(components))
         ax.errorbar(x, means, yerr=errors, label=scenario, fmt='o')
@@ -886,7 +861,6 @@ if __name__ == "__main__":
     # Show the plot
     plt.savefig('data/results/lcoewithouthemissions_per_scenario.png')
 
-# %%
 # %% costs plot
     # Create a list to store the means and standard deviations for each scenario
     means = []
