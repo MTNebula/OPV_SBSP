@@ -10,12 +10,14 @@ import warnings
 import time
 import matplotlib.pyplot as plt
 import os
+import seaborn as sns
 
 import pandas as pd
 
 import copy
 
-
+colors = sns.color_palette("viridis", 50)
+sns.set_palette("viridis")
 
 
 #Number of years is equal to Years of Mission + 1 for pre-launch costs 
@@ -26,6 +28,8 @@ DISCOUNT_RATE_SD = 0.02
 EXCEL_PATH = 'data/LCOE_Parameters.xlsb.xlsx'
 SHEET_NAME = 'OPV Scenario 2'
 SHEET_NAMES = ['PV Scenario 1', 'PV Scenario 2', 'OPV Scenario 1', 'OPV Scenario 2']
+
+# Values for the scenarios are calculated directly in the excel file based on the technology and original efficiency.
 
 values_of_scenarios = { 'PV Scenario 1':[], 'PV Scenario 2':[], 'OPV Scenario 1':[], 'OPV Scenario 2':[]}
 
@@ -40,10 +44,17 @@ class CostComponent:
         try: 
             # self.plot_and_save_histogram()
             self.plot_and_save_histogram_per_iteration()
+            # despine the top and right axis
+            sns.despine()
+            #add a gray grid
+            plt.grid(color='gray', linestyle='-', linewidth=0.5)
+           
         except Exception as e:
             print(f"Error occurred: {e}")
             print(f"There was a problem with plotting {self.name}")
             return None
+
+# Define properties for mean, standard deviation, min, and max for each variable used to run the simulation
 
     @property
     def mean(self):
@@ -52,7 +63,7 @@ class CostComponent:
         for costs in [self.costs, self.costs_per_iteration]:
             non_zero_cost = costs[costs != 0]
             if non_zero_cost.size > 0:
-                mean.append(np.mean(non_zero_cost))
+                mean.append(np.mean(non_zero_cost)) #avoiding zero values, particularly for parameters that happen only once
             else:
                 print(f"ERROR: creating mean for some values because all alues are zero for variable: {self.name}")
         return mean
@@ -93,6 +104,8 @@ class CostComponent:
                 print(f"ERROR: creating max for some values because all alues are zero for variable: {self.name}")
         return max
 
+# Defines the mathematical operations for the CostComponent class to be able to add, subtract, multiply, and divide cost components.
+
     def __add__(self, other):
         if isinstance(other, CostComponent):
             return CostComponent(self.costs + other.costs, self.name, self.unit)
@@ -123,6 +136,7 @@ class CostComponent:
         else:
             raise TypeError(f"Unsupported operand type(s) for -: '{type(self)}' and '{type(other)}'")
 
+# Define the string representation of the CostComponent class to create the discounted value.
 
     def __repr__(self):
         return f"Cost={self.costs})"
@@ -138,7 +152,7 @@ class CostComponent:
             cost = np.zeros(self.costs.shape)
             for i in range(self.costs.shape[0]):
                 for j in range(self.costs.shape[1]):
-                    cost[i, j] = self.costs[i, j]/(1+d) ** j
+                    cost[i, j] = self.costs[i, j]/(1+d) ** j #discounting the cost according to year and discount rate
             self.costs = cost
             self.is_discounted_cost = True
         else:
@@ -154,7 +168,7 @@ class CostComponent:
     def get_non_zero_cost(self):
         return copy.deepcopy(self.costs[self.costs != 0])
 
-    
+    # Histograms are created to show the distribution of costs for each variable in the simulation and make sure that the values are within the expected range.
     def plot_and_save_histogram(self, folder='plots'):
         # Flatten the cost matrix to get all individual cost values
         flat_costs = self.get_non_zero_cost().flatten()
@@ -164,11 +178,12 @@ class CostComponent:
             os.makedirs(folder)
 
         # Plot the histogram with 20 bins
-        plt.hist(flat_costs, bins=20, edgecolor='black')
+        plt.hist(flat_costs, bins=20)
         plt.title(f'{self.name}') 
         plt.xlabel(f'{self.unit}')
         plt.ylabel('Frequency')
-        plt.grid(True)
+        sns.despine()
+        plt.grid(color='gray', linestyle='--', linewidth=0.5)
 
         # Save the plot in the specified folder with the filename based on the variable name
         plt.savefig(f'{folder}/{self.name}.png')
@@ -190,7 +205,8 @@ class CostComponent:
         plt.title(f'{self.name}') 
         plt.xlabel(f'{self.unit}')
         plt.ylabel('Frequency')
-        plt.grid(True)
+        sns.despine()
+        plt.grid(color='gray', linestyle='-', linewidth=0.5)
 
         # Save the plot in the specified folder with the filename based on the variable name
         plt.savefig(f'{folder}/{self.name}.png')
@@ -199,6 +215,7 @@ class CostComponent:
         # plt.show()
         plt.close()
 
+# base components are used for the simulation and are the building blocks for the cost calculations
 class BaseComponent:
     def __init__(self, name, parents, unit, distribution, time_for_determination, low, high, sd, mean, shape, scale, count):
         """
@@ -233,6 +250,7 @@ class BaseComponent:
         self.count = count
         self.cost_component = CostComponent(self._generate_cost_array(), name, self.unit)
 
+# Define the base components and what they are made of. The cost of each component is calculated based on the distribution and time for determination, parents are used to show relationships between components.
     def __repr__(self):
         """
         Return a string representation of the BaseComponent object.
@@ -289,11 +307,13 @@ class BaseComponent:
         
         Returns:
         - np.ndarray: Array of costs calculated based on time_for_determination.
-        """
+      
+          """
+        # This is where the Monte Carlo simulation is run to generate the costs for each component based on the distribution and time for determination for each iteration.
         cost = np.zeros((NUM_OF_ITERATIONS, NUM_OF_TOTAL_YEARS+1))
         try:
             for j in range(cost.shape[0]):
-                if self.time_for_determination in [0, 'Y0', 'YO', 'y0']:
+                if self.time_for_determination in [0, 'Y0', 'YO', 'y0']: #Makes sure that the cost is only calculated once for these components
                     cost[j, 0] = generate_random_value(self.distribution, mean=self.mean, sd=self.sd, low=self.low, high=self.high, shape=self.shape, scale=self.scale, count=self.count)
                 elif 'Yearly' in self.time_for_determination:
                     for i in range(1, cost.shape[1]):
@@ -358,7 +378,7 @@ class CollectorClass:
 
         # Initialize cost_component if it's None
         if self.cost_component is None:
-            shape = parts[0].get_cost().costs.shape  # Copy the cost array from the first part
+            shape = parts[0].get_cost().costs.shape  # Get the shape of the cost array
             if operation == "+" or operation == "-":
                 self.cost_component = CostComponent(np.zeros(shape), self.name, self.unit)
             elif operation == "*":
@@ -426,7 +446,7 @@ def extract_base_components(excel_path: str, sheet_name: str):
         
         # Check if 'Include' column exists
         if 'Include' not in df.columns:
-            raise KeyError("'Include' column not found in the Excel file.")
+            raise KeyError("'Include' column not found in the Excel file.") #Some values on the excel sheet are relevant there to calculate the parameters but are no longer needed here.
         
         # Filter the relevant rows and columns
         filtered_df = df[df['Include'] == 'Include']
@@ -435,7 +455,7 @@ def extract_base_components(excel_path: str, sheet_name: str):
         base_components = {}
         
         for _, row in filtered_df.iterrows():
-            # Concatenate the primary to quinary fields to form the component name
+            # Concatenate the primary to quinary fields to form the component name as on the excel, components may have multiple dependencies
             name = ' > '.join(filter(pd.notna, [row['Primary'], row['Secondary'], row['Tertiary'], row['Quaternary'], row['Quinary']]))
             parents = ' > '.join(name.split(' > ')[:-1])
             name = name.split(' > ')[-1]
@@ -459,6 +479,7 @@ def extract_base_components(excel_path: str, sheet_name: str):
         print(f"Error occurred: {e}")
         return []
 
+#Let the Monte Carlo fun begin! (If you're reading this, I am tired and I'm sorry for my jokes - or not)
 def generate_random_value(distribution, mean=0, sd=1, low=0, high=1, shape=1, scale=1, count=1):
     """
     Generate a random value based on the specified distribution.
@@ -476,7 +497,8 @@ def generate_random_value(distribution, mean=0, sd=1, low=0, high=1, shape=1, sc
     Returns:
         float: A random value based on the specified distribution.
     """
-
+#The function generates random values based on the specified distribution. The function takes the distribution type and the parameters for the distribution as input and returns a random value based on the distribution.
+#Originally, more distributions were planned to be implemented, but only a few were implemented due to time constraints and the complexity of the distributions (values returned were not making much sense)
     if distribution == 'Uniform':
         return np.random.uniform(low, high)
     elif distribution == 'Normal' or distribution == 'nORMAL':  # Handling case sensitivity
@@ -515,6 +537,8 @@ class  CostCalculator:
         self.repairtotal = None
         self.maintenance = None
         self.emissiontotal = None
+        self.emissiontotalsystem = None
+        self.emissiontotallaunch = None
         self.emission = None
         self.fuel = None
         self.efficiencyboost = None
@@ -536,6 +560,8 @@ class  CostCalculator:
 
         self.calculate_costs()
 
+# Calculates the repairs cost accounting for the material, which is assumed to be 5% of the original materials costs, launching costs for those materials and also a 5% of the original assembly cost. The total cost is then calculated based on the probability of material repairs and the total cost of repairs.
+#This accounts for the fact that material repairs may or may not happen   
     def calculate_costs(self):
         self.repairsmaterial = CollectorClass("Repairs Material", "USD")
         parts = [self.base_components["Material Repairs Cost"], self.base_components["Repair Assembly"]]
@@ -553,42 +579,64 @@ class  CostCalculator:
         parts = [self.base_components["Probability of Material Repairs"], self.repairtotal]
         self.maintenance.add_part(parts, "*")
 
-        self.emissiontotal = CollectorClass("Emission", 'TCO2e/m2')
-        parts = [self.base_components["Energy system emissions"], self.base_components["Launching emissions"]]
+# We are now calculating the emissions cost based on the energy system emissions and the launching emissions. The total emissions cost is then calculated based on the emissions cost, the area of the panels, and the total emissions.
+        self.emissiontotalsystem = CollectorClass("Emissions for Energy System", 'TCO2e')
+        parts = [self.base_components["Energy system emissions"], self.base_components["Area of panels"]]
+        self.emissiontotalsystem.add_part(parts, "*")
+
+        self.emissiontotallaunch = CollectorClass("Emissions for Launching", 'TCO2e')
+        parts = [self.base_components["Number of Launches"], self.base_components["Launching emissions"]]
+        self.emissiontotallaunch.add_part(parts, "*")
+
+        self.emissiontotal = CollectorClass("Total Emission", 'TCO2e')
+        parts = [self.emissiontotalsystem, self.emissiontotallaunch]
         self.emissiontotal.add_part(parts, "+")
 
-        self.emission = CollectorClass("Emission", 'USD')
-        parts = [self.emissiontotal, self.base_components["Emission Cost"], self.base_components["Area of panels"]]
+        self.emission = CollectorClass("Emission Cost", 'USD')
+        parts = [self.emissiontotal, self.base_components["Emission Cost"]]
         self.emission.add_part(parts, "*")
+
+# We are now calculating the fuel cost based on the fuel use and the fuel cost. The total fuel cost is then calculated based on the fuel cost and the fuel use.
 
         self.fuel = CollectorClass("Fuel", 'USD')
         parts = [self.base_components["Fuel use"], self.base_components["Fuel cost"]]
         self.fuel.add_part(parts, "*")
 
+# This section calculates the total energy generated by the system throughout the mission's life
+
+#First the efficiency for each year is calculated:
+# The efficiency boost depends on whether there is a repair or not. If there is a repair, the efficiency boost is calculated and will be added to that year's efficiencyt. If there is no repair, the efficiency boost is 0%. 
         self.efficiencyboost = CollectorClass("Efficiency boost", '%')
         parts = [self.base_components["Efficiency boost repair"], self.base_components["Probability of Material Repairs"]]
         self.efficiencyboost.add_part(parts, "*")
 
-        costs = self.efficiencyboost.get_cost().costs
+        self.efficiencyd = CollectorClass("Efficiency Degradation Rate", '%')
+        parts = [self.base_components["Efficiency Degradation Rate"]]
+        self.efficiencyd.add_part(parts)
+
+# We now calculate the degradation per year t following a formula that mirrors that of depreciation but substrating the degradation rate from 1. The efficiency degradation is then calculated based on the original efficiency and the degradation rate. 
+        costs = self.efficiencyd.get_cost().costs 
         for iteration in range(costs.shape[0]):
             for year in range(costs.shape[1]):
                 costs[iteration, year] = self.base_components["Original Efficiency"].cost_component.costs[iteration, year] * (1 - self.base_components["Efficiency Degradation Rate"].cost_component.costs[iteration, year])**year
 
-        self.efficiencyd = CollectorClass("Efficiency d", '%')
+        self.efficiencyd = CollectorClass("Efficiency degradation", '%')
         self.efficiencyd.set_cost(costs)
 
-        self.efficiencybd = CollectorClass("Efficiency bd", '%')
+        self.efficiencybd = CollectorClass("Efficiency bd", '%') #The efficiency boost is multiplied by the new degraded efficiency to get the proportional boost
         parts = [self.efficiencyboost, self.efficiencyd]
         self.efficiencybd.add_part(parts, "*")
 
-        self.efficiencyt = CollectorClass("Efficiency t", '%')
+        self.efficiencyt = CollectorClass("Efficiency t", '%') #These efficiencies are then summed to account for potential boosts due to repairs
         parts = [self.efficiencybd, self.efficiencyd]
         self.efficiencyt.add_part(parts, "+")
 
+#Finally, we are able to calculate the total energy generated by the system throughout the mission's life based on the installed capacity, the efficiencyt, the number of days in a year, and the hours in a day.
         self.energy = CollectorClass("Energy", 'MWh')
         parts = [self.base_components["Installed Capacity"], self.efficiencyt, self.base_components["#days in year t"], self.base_components["Hours in a day"]]
         self.energy.add_part(parts, "*")
 
+#We calculate the manufacture of the panels costs
         self.manufacture_panels = CollectorClass("Manufacture Panels", 'USD/m2')
         parts = [self.base_components['Raw Materials'], self.base_components['Processing']]
         self.manufacture_panels.add_part(parts, "+")
@@ -597,22 +645,28 @@ class  CostCalculator:
         parts = [self.base_components['Area of panels'], self.manufacture_panels]
         self.manufacture.add_part(parts, "*")
 
+#We calculate the launch costs based on the number of launches and the launching cost. The number of launches depends on the mass and stowability of the panels.
         self.launch = CollectorClass("Launch", 'USD')
         parts = [self.base_components['Number of Launches'], self.base_components['Launching cost']]
         self.launch.add_part(parts, "*")
+
+# we start bringing the costs together into the actual terms for the LCOE formula. In this case, investment. 
 
         self.investment = CollectorClass("Investment Costs", 'USD')
         parts = [self.base_components['Assembly'], self.launch, self.manufacture]
         self.investment.add_part(parts, "+")
 
+#These are the total costs for the system.
         self.cost = CollectorClass("Cost", 'USD')
         parts = [self.investment, self.emission, self.fuel, self.maintenance]
         self.cost.add_part(parts, "+")
 
+#Because carbon is not normally accounted for in LCOE, a version without the emissions is calculated.
         self.costwithoutemission = CollectorClass("Cost", 'USD')
         parts = [self.investment, self.fuel, self.maintenance]
         self.costwithoutemission.add_part(parts, "+")
 
+#It's depreciation time! This is done to show the value of the asset in present terms. 
         costs = self.base_components["Depreciation of Assets"].get_cost().costs
         for iteration in range(costs.shape[0]):
             for year in range(costs.shape[1]):
@@ -643,6 +697,8 @@ class  CostCalculator:
         print(self.totalenergy)
         print(self.totalenergy.get_cost().costs)
 
+# We can FINALLY calculate the LCOSE and LCOSE without emissions. 
+
         self.lcoe = CollectorClass("LCOSE", 'USD/Mwh')
         parts = [self.totalcost, self.totalenergy]
         self.lcoe.add_part(parts, "/")
@@ -654,7 +710,7 @@ class  CostCalculator:
 
         print(self.lcoewithoutemission.get_cost().costs)
 
-
+# This is just to show the results of the calculations
 def create_table(scenarios):
     data = []
     for scenario, calculator in scenarios.items():
@@ -670,9 +726,11 @@ def create_table(scenarios):
 
     df = pd.DataFrame(data)
     # Assuming `table` is the DataFrame you want to save
-    df.to_csv('data/results/table.csv', index=False)
+    df.to_csv('data/results/Results_per_scenario.csv', index=False)
 
     return df
+
+# Plots to show results
 
 def plot_error_bars(scenarios, exclude_components=[]):
     fig, ax = plt.subplots()
@@ -691,18 +749,15 @@ def plot_error_bars(scenarios, exclude_components=[]):
     ax.set_ylabel('Mean Cost')
     ax.set_title('Mean Cost with Error Bars for Each Component in Each Scenario')
     ax.legend()
-
     # Use log scale for y-axis
     ax.set_yscale('log')
-
+    sns.despine()
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
+    #get the labels to not overlap with the graph
     plt.tight_layout()
-
-
     # Save the plot
     plt.savefig(f'data/results/plot/error_bars_{scenario}.png')
-
     plt.show()
-
 
 
 if __name__ == "__main__":
@@ -719,35 +774,42 @@ if __name__ == "__main__":
     print(table)
 
 # %% Create error bars
-    exclude_components = ['#days in year t', 'Original Efficiency','Hours in a day','Mission Life', 'Depreciation of Assets', 'Probability of Material Repairs','Fuel Cost','Emission Cost']
+    exclude_components = ['#days in year t', 'Original Efficiency','Hours in a day','Mission Life', 'Depreciation of Assets', 'Probability of Material Repairs','Emission Cost','Launching cost','Repair Launching cost','Fuel cost','Energy system emissions', 'Launching emissions', 'Efficiency Degradation Rate','Efficiency boost repair', 'Raw Materials','Processing']
     plot_error_bars(values_of_scenarios, exclude_components)
+    #use viridis color map
+    sns.set_palette("viridis")
+    # move labels to the right so they do not overlap
+    plt.tight_layout()
 
-# %% Create plot of opv and pv
-    degradation_comp_scenarios = [values_of_scenarios['PV Scenario 1'], values_of_scenarios['OPV Scenario 1']] 
-    plt.figure(figsize=(10, 6))
-    for scenario in degradation_comp_scenarios:
-        print(f"Degradation calc for the following scenario:{scenario.sheet_name}")
-        print(scenario.efficiencyt.get_cost())
-        mean_per_year = np.mean(scenario.efficiencyt.get_cost().costs, axis=0)
-        print(f"mean per year {mean_per_year}")
 
-            # Create a range for the x-axis (years)
-        years = range(1, len(mean_per_year))
 
-        # Plot the data
+# # %% Create plot of opv and pv
+#     degradation_comp_scenarios = [values_of_scenarios['PV Scenario 1'], values_of_scenarios['OPV Scenario 1']] 
+#     plt.figure(figsize=(10, 6))
+#     for scenario in degradation_comp_scenarios:
+#         print(f"Degradation calc for the following scenario:{scenario.sheet_name}")
+#         print(scenario.efficiencyt.get_cost())
+#         mean_per_year = np.mean(scenario.efficiencyt.get_cost().costs, axis=0)
+#         print(f"mean per year {mean_per_year}")
 
-        plt.plot(years, mean_per_year[1:], label=scenario.sheet_name)
+#             # Create a range for the x-axis (years)
+#         years = range(1, len(mean_per_year))
 
-    # Add labels and title
-    plt.xlabel('Years')
-    plt.ylabel('Mean Cost per Year')
-    plt.title('Comparison of Mean Costs per Year for PV and OPV Scenarios')
+#         # Plot the data
 
-    # Add a legend
-    plt.legend()
+#         plt.plot(years, mean_per_year[1:], label=scenario.sheet_name)
 
-    # Show the plot
-    plt.savefig('data/results/mean_costs_per_year.png')
+#     # Add labels and title
+#     plt.xlabel('Years')
+#     plt.ylabel('Mean Cost per Year')
+#     plt.title('Comparison of Mean Costs per Year for PV and OPV Scenarios')
+#     plt.show()
+
+#     # Add a legend
+#     plt.legend()
+
+#     # Show the plot
+#     plt.savefig('data/results/mean_costs_per_year.png')
 
 
 # %%calculate lcoe
@@ -763,7 +825,7 @@ if __name__ == "__main__":
 
     # Iterate over the scenarios
     for name, information in values_of_scenarios.items():
-        lcoe = information.lcoe.get_cost().costs  # Get the first 5 years of LCOE data
+        lcoe = information.lcoe.get_cost().costs 
         mean = np.mean(lcoe)  # Calculate the mean
         std = np.std(lcoe)  # Calculate the standard deviation
         means.append(mean)
@@ -772,31 +834,60 @@ if __name__ == "__main__":
 
     # Create a list for the x-axis positions
     x_pos = range(1, len(scenario_names) + 1)
-
     # Create the plot
     plt.figure(figsize=(10, 6))
-
     # Plot the error bars
-    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='LCOE with error bars')
-
+    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='LCOSE with error bars')
     # Plot the means as horizontal lines
-    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos], colors='red', label='Mean LCOE')
-
+    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos], colors='green', label='Mean LCOSE')
+    sns.despine()
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
     # Add labels and title
     plt.xlabel('Scenario')
-    plt.ylabel('LCOE')
-    plt.title('LCOE for Each Scenario with Error Bars and Mean')
-
+    plt.ylabel('LCoSE (USD/MWh)')
     # Set the x-axis ticks and labels
     plt.xticks(x_pos, scenario_names)
-
-    # Add a legend
-    plt.legend()
-
+    # Add a legend without a frame
+    plt.legend(frameon=False)
     # Show the plot
     plt.savefig('data/results/lcoe_per_scenario.png')
+    plt.show()
 
-# %% lcoe plot
+# %% lcoe without emissions plot
+    # Create a list to store the means and standard deviations for each scenario
+    means = []
+    stds = []
+    scenario_names = []
+    # Iterate over the scenarios
+    for name, information in values_of_scenarios.items():
+        lcoe = information.lcoewithoutemission.get_cost().costs  
+        mean = np.mean(lcoe)  # Calculate the mean
+        std = np.std(lcoe)  # Calculate the standard deviation
+        means.append(mean)
+        stds.append(std)
+        scenario_names.append(name)
+    # Create a list for the x-axis positions
+    x_pos = range(1, len(scenario_names) + 1)
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
+    # Plot the error bars
+    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='LCOE with error bars excluding emissions')
+    # Plot the means as horizontal lines
+    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos],colors='green', label='Mean LCOE')
+    # Add labels and title
+    plt.xlabel('Scenario')
+    plt.ylabel('LCoSE (USD/MWh)')
+    sns.despine()
+    # Set the x-axis ticks and labels
+    plt.xticks(x_pos, scenario_names)
+    # Add a legend without frame
+    plt.legend(frameon=False)
+    # Show the plot
+    plt.savefig('data/results/lcoewithouthemissions_per_scenario.png')
+
+# %%
+# %% costs plot
     # Create a list to store the means and standard deviations for each scenario
     means = []
     stds = []
@@ -804,37 +895,32 @@ if __name__ == "__main__":
 
     # Iterate over the scenarios
     for name, information in values_of_scenarios.items():
-        lcoe = information.lcoewithoutemission.get_cost().costs  # Get the first 5 years of LCOE data
-        mean = np.mean(lcoe)  # Calculate the mean
-        std = np.std(lcoe)  # Calculate the standard deviation
+        maintenance = information.maintenance.get_cost().costs  
+        mean = np.mean(maintenance)  # Calculate the mean
+        std = np.std(maintenance)  # Calculate the standard deviation
         means.append(mean)
         stds.append(std)
         scenario_names.append(name)
 
     # Create a list for the x-axis positions
     x_pos = range(1, len(scenario_names) + 1)
-
     # Create the plot
     plt.figure(figsize=(10, 6))
-
-    # Plot the error bars
-    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='LCOE with error bars')
-
+    # Plot the error bars with a different color from viridis color map for each scenario
+    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='Maintenance with error bars', color='yellow')
     # Plot the means as horizontal lines
-    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos], colors='red', label='Mean LCOE')
-
+    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos], label='Mean maintenance', color='blue')
+    sns.despine()
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
     # Add labels and title
     plt.xlabel('Scenario')
-    plt.ylabel('LCOE')
-    plt.title('LCOE without emissions for Each Scenario with Error Bars and Mean')
-
+    plt.ylabel('Maintenance Cost (USD)')
+    plt.title('Maintenance Cost for Each Scenario with Error Bars and Mean')
     # Set the x-axis ticks and labels
     plt.xticks(x_pos, scenario_names)
-
     # Add a legend
     plt.legend()
-
     # Show the plot
-    plt.savefig('data/results/lcoewithouthemissions_per_scenario.png')
+    plt.savefig('data/results/maintenance_per_scenario.png')
+    plt.show()
 
-# %%
