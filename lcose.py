@@ -688,7 +688,16 @@ def create_table(scenarios):
     data = []
     for scenario, calculator in scenarios.items():
         calculator.base_components['lcoe'] = calculator.lcoe
-        components = calculator.base_components.values()
+        calculator.base_components['emissiontotallaunch'] = calculator.emissiontotallaunch
+        calculator.base_components['emissiontotalsystem'] = calculator.emissiontotalsystem
+        calculator.base_components['maintenance'] = calculator.maintenance
+        calculator.base_components['emission'] = calculator.emission
+        calculator.base_components['fuel'] = calculator.fuel
+        calculator.base_components['manufacture'] = calculator.manufacture
+        calculator.base_components['launch'] = calculator.launch
+        calculator.base_components['energy'] = calculator.energy
+
+
         for component in calculator.base_components.values():
             data.append({
                 'Scenario': scenario,
@@ -732,7 +741,7 @@ def plot_error_bars(scenarios, exclude_components=[]):
     plt.tight_layout()
     # Save the plot
     plt.savefig(f'data/results/plot/error_bars_{scenario}.png')
-    plt.show()
+    plt.close()
 
 
 if __name__ == "__main__":
@@ -826,7 +835,7 @@ if __name__ == "__main__":
     plt.legend(frameon=False)
     # Show the plot
     plt.savefig('data/results/lcoe_per_scenario.png')
-    plt.show()
+    plt.close()
 
 # %% lcoe without emissions plot
     # Create a list to store the means and standard deviations for each scenario
@@ -861,40 +870,76 @@ if __name__ == "__main__":
     # Show the plot
     plt.savefig('data/results/lcoewithouthemissions_per_scenario.png')
 
+
+
 # %% costs plot
-    # Create a list to store the means and standard deviations for each scenario
-    means = []
-    stds = []
-    scenario_names = []
+    plt.close()
+    # Initialize empty lists to store the costs
+    maintenance_costs = []
+    emission_costs = []
+    fuel_costs = []
+    manufacture_costs = []
+    launch_costs = []
 
-    # Iterate over the scenarios
+    # Loop through the scenarios
     for name, information in values_of_scenarios.items():
-        maintenance = information.maintenance.get_cost().costs  
-        mean = np.mean(maintenance)  # Calculate the mean
-        std = np.std(maintenance)  # Calculate the standard deviation
-        means.append(mean)
-        stds.append(std)
-        scenario_names.append(name)
+        maintenance_costs.append(np.mean(information.maintenance.get_cost().costs))
+        emission_costs.append(np.mean(information.emission.get_cost().costs))
+        fuel_costs.append(np.mean(information.fuel.get_cost().costs))
+        manufacture_costs.append(np.mean(information.manufacture.get_cost().costs))
+        launch_costs.append(np.mean(information.launch.get_cost().costs))
 
-    # Create a list for the x-axis positions
-    x_pos = range(1, len(scenario_names) + 1)
-    # Create the plot
-    plt.figure(figsize=(10, 6))
-    # Plot the error bars with a different color from viridis color map for each scenario
-    plt.errorbar(x_pos, means, yerr=stds, fmt='o', capsize=5, label='Maintenance with error bars', color='yellow')
-    # Plot the means as horizontal lines
-    plt.hlines(means, xmin=[x - 0.2 for x in x_pos], xmax=[x + 0.2 for x in x_pos], label='Mean maintenance', color='blue')
-    sns.despine()
-    plt.grid(color='gray', linestyle='--', linewidth=0.5)
+    # Create a range for the x-axis
+    x = np.arange(len(values_of_scenarios))
+
+    # Plot the stacked histogram
+    plt.bar(x, maintenance_costs, label='Maintenance')
+    plt.bar(x, emission_costs, bottom=maintenance_costs, label='Emission')
+    plt.bar(x, fuel_costs, bottom=np.array(maintenance_costs)+np.array(emission_costs), label='Fuel')
+    plt.bar(x, manufacture_costs, bottom=np.array(maintenance_costs)+np.array(emission_costs)+np.array(fuel_costs), label='Manufacture')
+    plt.bar(x, launch_costs, bottom=np.array(maintenance_costs)+np.array(emission_costs)+np.array(fuel_costs)+np.array(manufacture_costs), label='Launch')
+
     # Add labels and title
-    plt.xlabel('Scenario')
-    plt.ylabel('Maintenance Cost (USD)')
-    plt.title('Maintenance Cost for Each Scenario with Error Bars and Mean')
-    # Set the x-axis ticks and labels
-    plt.xticks(x_pos, scenario_names)
-    # Add a legend
-    plt.legend()
-    # Show the plot
-    plt.savefig('data/results/maintenance_per_scenario.png')
-    plt.show()
+    sns.despine
 
+    plt.xlabel('Scenarios')
+    plt.ylabel('Costs')
+    plt.title('Mean costs for each scenario')
+    plt.xticks(x, values_of_scenarios.keys())
+    plt.legend()
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
+ # plt.yscale('log')
+
+    # Show the plot
+    plt.savefig('data/results/Mean Costs for each scenario.png')
+    plt.close()
+
+    # %%
+    # Initialize empty lists to store the emissions
+    emission_system = []
+    emission_launch = []
+
+    # Loop through the scenarios
+    for name, information in values_of_scenarios.items():
+        emission_system.append(np.mean(information.emissiontotalsystem.get_cost().costs))
+        emission_launch.append(np.mean(information.emissiontotallaunch.get_cost().costs))
+
+    # Create a range for the x-axis
+    x = np.arange(len(values_of_scenarios))
+
+    # Plot the stacked histogram
+    plt.bar(x, emission_system, label='Emission System')
+    plt.bar(x, emission_launch, bottom=np.array(emission_system), label='Emission Launch')
+
+    # Add labels and title
+    sns.despine
+
+    plt.xlabel('Scenarios')
+    plt.ylabel('Emissions')
+    plt.title('Mean emissions for each scenario')
+    plt.xticks(x, values_of_scenarios.keys())
+    plt.legend()
+    plt.grid(color='gray', linestyle='--', linewidth=0.5)
+
+    # Show the plot
+    plt.savefig('data/results/emissions.png')
