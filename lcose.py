@@ -914,8 +914,10 @@ if __name__ == "__main__":
     plt.ylabel('Costs')
     plt.title('Mean costs for each scenario')
     plt.xticks(x, values_of_scenarios.keys())
-    plt.legend()
+    plt.legend(frameon=False)
     plt.grid(color='gray', linestyle='--', linewidth=0.5)
+
+
  # plt.yscale('log')
 
     # Show the plot
@@ -940,14 +942,15 @@ if __name__ == "__main__":
     plt.bar(x, emission_launch, bottom=np.array(emission_system), label='Emission Launch')
 
     # Add labels and title
-    sns.despine
+    
 
-    plt.xlabel('Scenarios')
-    plt.ylabel('Emissions')
-    plt.title('Mean emissions for each scenario')
+    # plt.xlabel('Scenarios')
+    plt.ylabel('Emissions (ton C02e)')
     plt.xticks(x, values_of_scenarios.keys())
-    plt.legend()
+    plt.legend(frameon=False)
     plt.grid(color='gray', linestyle='--', linewidth=0.5)
-
+    sns.despine()
+    plt.tight_layout()
     # Show the plot
     plt.savefig('data/results/emissions.png')
+    plt.show()
