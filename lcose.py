@@ -696,6 +696,7 @@ def create_table(scenarios):
     data = []
     for scenario, calculator in scenarios.items():
         calculator.base_components['lcoe'] = calculator.lcoe
+        calculator.base_components['lcoewithoutemission'] = calculator.lcoewithoutemission
         calculator.base_components['emissiontotallaunch'] = calculator.emissiontotallaunch
         calculator.base_components['emissiontotalsystem'] = calculator.emissiontotalsystem
         calculator.base_components['maintenance'] = calculator.maintenance
