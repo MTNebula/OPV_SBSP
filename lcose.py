@@ -891,11 +891,11 @@ if __name__ == "__main__":
 
     # Loop through the scenarios
     for name, information in values_of_scenarios.items():
-        maintenance_costs.append(np.mean(information.maintenance.get_cost().costs))
-        emission_costs.append(np.mean(information.emission.get_cost().costs))
-        fuel_costs.append(np.mean(information.fuel.get_cost().costs))
-        manufacture_costs.append(np.mean(information.manufacture.get_cost().costs))
-        launch_costs.append(np.mean(information.launch.get_cost().costs))
+        maintenance_costs.append(np.mean(information.maintenance.get_cost().get_cost_per_iteration()))
+        emission_costs.append(np.mean(information.emission.get_cost().get_cost_per_iteration()))
+        fuel_costs.append(np.mean(information.fuel.get_cost().get_cost_per_iteration()))
+        manufacture_costs.append(np.mean(information.manufacture.get_cost().get_cost_per_iteration()))
+        launch_costs.append(np.mean(information.launch.get_cost().get_cost_per_iteration()))
 
     # Create a range for the x-axis
     x = np.arange(len(values_of_scenarios))
@@ -916,13 +916,15 @@ if __name__ == "__main__":
     plt.xticks(x, values_of_scenarios.keys())
     plt.legend(frameon=False)
     plt.grid(color='gray', linestyle='--', linewidth=0.5)
+    plt.tight_layout()
+
 
 
  # plt.yscale('log')
 
     # Show the plot
     plt.savefig('data/results/Mean Costs for each scenario.png')
-    plt.close()
+    plt.show()
 
     # %%
     # Initialize empty lists to store the emissions
@@ -931,8 +933,8 @@ if __name__ == "__main__":
 
     # Loop through the scenarios
     for name, information in values_of_scenarios.items():
-        emission_system.append(np.mean(information.emissiontotalsystem.get_cost().costs))
-        emission_launch.append(np.mean(information.emissiontotallaunch.get_cost().costs))
+        emission_system.append(np.mean(information.emissiontotalsystem.get_cost().get_cost_per_iteration()))
+        emission_launch.append(np.mean(information.emissiontotallaunch.get_cost().get_cost_per_iteration()))
 
     # Create a range for the x-axis
     x = np.arange(len(values_of_scenarios))
