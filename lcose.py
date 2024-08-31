@@ -59,20 +59,28 @@ class CostComponent:
 
     @property
     def mean(self):
-        return np.mean(self.get_cost_per_iteration())
-
+        costs = self.get_cost_per_iteration()
+        non_zero_costs = costs[costs != 0]
+        return np.mean(non_zero_costs)
 
     @property
     def sd(self):
-        return np.std(self.get_cost_per_iteration())
+        costs = self.get_cost_per_iteration()
+        non_zero_costs = costs[costs != 0]
+        return np.std(non_zero_costs)
 
     @property
     def min(self):
-        return np.min(self.get_cost_per_iteration())
+        costs = self.get_cost_per_iteration()
+        non_zero_costs = costs[costs != 0]
+        return np.min(non_zero_costs)
 
     @property
     def max(self):
-        return np.max(self.get_cost_per_iteration())
+        costs = self.get_cost_per_iteration()
+        non_zero_costs = costs[costs != 0]
+        return np.max(non_zero_costs)
+
 
 
 # Defines the mathematical operations for the CostComponent class to be able to add, subtract, multiply, and divide cost components.
